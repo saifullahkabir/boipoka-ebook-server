@@ -1,4 +1,5 @@
 const express = require('express');
+const app = express();
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -9,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 
 dotenv.config();
 
-const app = express();
+
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -34,9 +35,25 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    
-    const booksCollection = client.db('boipoka-ebook').collection('books')
-    
+
+    const booksCollection = client.db('boipoka-ebook').collection('books');
+
+    // save book data in db
+    app.post('/books', upload.single('pdf'), async (req, res) => {
+      const { title, author } = req.body;
+      const pdfPath = req.file.path;
+
+      const book = { title, author, pdfPath };
+      const result = await booksCollection.insertOne(book);
+
+      res.send({ message: 'Book uploaded', id: result.insertedId });
+    });
+
+    app.get('/books', async (req, res) => {
+      const books = await booksCollection.find().toArray();
+      res.send(books);
+    });
+
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
