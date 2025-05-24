@@ -5,6 +5,8 @@ const dotenv = require('dotenv');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const { google } = require('googleapis');
 const stream = require('stream');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 
 // Config
 dotenv.config();
@@ -24,6 +26,24 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(cookieParser());
+
+// Verify Token Middleware
+const verifyToken = async (req, res, next) => {
+  const token = req.cookies?.token
+  console.log(token)
+  if (!token) {
+    return res.status(401).send({ message: 'unauthorized access' })
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      console.log(err)
+      return res.status(401).send({ message: 'unauthorized access' })
+    }
+    req.user = decoded
+    next()
+  })
+}
 
 // Multer memory storage (no local file write)
 const storage = multer.memoryStorage();
