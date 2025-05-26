@@ -71,6 +71,8 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const booksCollection = client.db('boipoka-ebook').collection('books');
+    const usersCollection = client.db('boipoka-ebook').collection('users');
+    const myBooksCollection = client.db('boipoka-ebook').collection('my-books');
 
     // auth related api
     app.post('/jwt', async (req, res) => {
@@ -88,13 +90,14 @@ async function run() {
     })
 
     // Logout
-    app.get('/logout', async (req, res) => {
+    app.post('/logout', async (req, res) => {
       try {
         res
           .clearCookie('token', {
-            maxAge: 0,
+            httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+            maxAge: 0,
           })
           .send({ success: true })
         console.log('Logout successful')
@@ -168,6 +171,84 @@ async function run() {
       const books = await booksCollection.find().sort({ uploadedAt: -1 }).toArray();
       res.send(books);
     });
+
+    // Save book (Read or Wishlist) data to DB
+    app.put('/my-books', async (req, res) => {
+      try {
+        const { email, bookId, status } = req.body;
+
+        // Check if the book already exists for the user
+        const existing = await myBooksCollection.findOne({ email, bookId });
+
+
+        if (existing) {
+          if (existing.status === 'read') {
+            return res.status(400).json({ message: 'Already marked as Read. Cannot add to Wishlist.' });
+          }
+
+          if (status === 'read') {
+            // Update status to 'read'
+            const updateResult = await myBooksCollection.updateOne(
+              { email, bookId },
+              { $set: { status: 'read' } }
+            );
+            return res.json({ message: 'Book marked as Read' });
+          }
+
+          return res.status(400).json({ message: 'Book already in Wishlist' });
+        }
+
+        // Insert new book entry
+        const newBook = req.body;
+        console.log(newBook);
+        const insertResult = await myBooksCollection.insertOne(newBook);
+
+        res.json({ message: `Book added to ${status}` });
+
+      } catch (error) {
+        console.error('Error saving book:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+      }
+    });
+
+    // get my-books data for specific user
+    app.get('/my-books', async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await myBooksCollection.find(query).toArray();
+      res.json(result);
+    })
+
+    // save a user data in db 
+    app.put('/user', async (req, res) => {
+      const user = req.body;
+      const query = { email: user?.email };
+
+      // check if user already exists in db
+      const isExist = await usersCollection.findOne(query);
+      if (isExist) {
+        if (user?.status === 'Requested') {
+          // if existing user try to change his role
+          const result = await usersCollection.updateOne(query, {
+            $set: { status: user?.status }
+          });
+          return res.send(result);
+        }
+        // if existing user login again
+        return res.send(isExist);
+      }
+
+      // save user for the first time
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          ...user,
+          timestamp: Date.now(),
+        }
+      }
+      const result = await usersCollection.updateOne(query, updateDoc, options);
+      res.send(result);
+    })
 
     console.log('MongoDB connected successfully!');
   } catch (err) {
