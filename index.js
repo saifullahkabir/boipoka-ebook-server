@@ -109,11 +109,11 @@ async function run() {
     // Upload Book
     app.post('/books', upload.single('pdf'), async (req, res) => {
       try {
-        const { title, author, description } = req.body;
+        const bookData = JSON.parse(req.body.bookData);
         const file = req.file;
 
-        if (!title || !author || !file) {
-          return res.status(400).send({ error: 'Missing required fields' });
+        if (!file) {
+          return res.status(400).send({ error: 'PDF file is required' });
         }
 
         // Create stream from buffer
@@ -144,17 +144,14 @@ async function run() {
         });
 
         const fileUrl = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
-
+        console.log('fileUrl::::::::::', fileUrl);
         // Save to MongoDB
         const book = {
-          title,
-          author,
-          description,
-          driveUrl: fileUrl,
-          uploadedAt: new Date(),
+          ...bookData,
+          fileUrl
         };
         const result = await booksCollection.insertOne(book);
-
+        console.log(result, 'result.........');
         res.send({
           message: 'Book uploaded successfully!',
           insertedId: result.insertedId,
@@ -212,8 +209,8 @@ async function run() {
     });
 
     // get my-books data for specific user
-    app.get('/my-books', async (req, res) => {
-      const email = req.query.email;
+    app.get('/my-books/:email', async (req, res) => {
+      const email = req.params.email;
       const query = { email: email };
       const result = await myBooksCollection.find(query).toArray();
       res.json(result);
