@@ -187,6 +187,68 @@ async function run() {
     });
 
 
+    // Update Book
+    app.patch('/book/:id', upload.single('pdf'), async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const bookData = JSON.parse(req.body.bookData);
+        const file = req.file;
+
+        let fileUrl = bookData.fileUrl;
+
+        // new PDF Google Drive upload
+        if (file) {
+          const bufferStream = new stream.PassThrough();
+          bufferStream.end(file.buffer);
+
+          const response = await drive.files.create({
+            requestBody: {
+              name: file.originalname,
+              mimeType: 'application/pdf',
+            },
+            media: {
+              mimeType: 'application/pdf',
+              body: bufferStream,
+            },
+            fields: 'id',
+          });
+
+          const fileId = response.data.id;
+
+          await drive.permissions.create({
+            fileId,
+            requestBody: {
+              role: 'reader',
+              type: 'anyone',
+            },
+          });
+
+          fileUrl = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+        }
+
+        // update in MongoDB
+        const updatedBook = {
+          $set: {
+            ...bookData,
+            fileUrl,
+          }
+        };
+
+        const result = await booksCollection.updateOne(query, updatedBook);
+
+        res.send({
+          message: 'Book updated successfully!',
+          modifiedCount: result.modifiedCount,
+          driveUrl: fileUrl,
+        });
+      } catch (error) {
+        console.error('Update Error:', error);
+        res.status(500).send({ error: 'Failed to update book' });
+      }
+    });
+
+
 
     // Save book (Read or Wishlist) data to DB
     app.put('/my-books', async (req, res) => {
