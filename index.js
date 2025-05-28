@@ -169,13 +169,24 @@ async function run() {
       res.send(books);
     });
 
+    // get a single book data 
+    app.get('/book/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await booksCollection.findOne(query);
+      res.send(result);
+
+    })
+
     // delete a book data
     app.delete('/book/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await booksCollection.deleteOne(query);
       res.send(result);
-    })
+    });
+
+
 
     // Save book (Read or Wishlist) data to DB
     app.put('/my-books', async (req, res) => {
