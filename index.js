@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const dotenv = require('dotenv');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const { google } = require('googleapis');
 const stream = require('stream');
 const cookieParser = require('cookie-parser');
@@ -144,14 +144,14 @@ async function run() {
         });
 
         const fileUrl = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
-        console.log('fileUrl::::::::::', fileUrl);
+
         // Save to MongoDB
         const book = {
           ...bookData,
           fileUrl
         };
         const result = await booksCollection.insertOne(book);
-        console.log(result, 'result.........');
+
         res.send({
           message: 'Book uploaded successfully!',
           insertedId: result.insertedId,
@@ -168,6 +168,14 @@ async function run() {
       const books = await booksCollection.find().sort({ uploadedAt: -1 }).toArray();
       res.send(books);
     });
+
+    // delete a book data
+    app.delete('/book/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await booksCollection.deleteOne(query);
+      res.send(result);
+    })
 
     // Save book (Read or Wishlist) data to DB
     app.put('/my-books', async (req, res) => {
