@@ -328,6 +328,12 @@ async function run() {
       res.send(result);
     })
 
+    // get all user data from db
+    app.get('/users', async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    })
+
     console.log('MongoDB connected successfully!');
   } catch (err) {
     console.error('MongoDB connection error:', err);
