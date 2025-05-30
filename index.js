@@ -18,7 +18,6 @@ app.use(cors({
   origin: [
     'http://localhost:4173',
     'http://localhost:5173',
-    'http://localhost:5174',
     'https://boipoka-ebook.web.app',
     'https://boipoka-ebook.vercel.app'
   ],
@@ -32,7 +31,7 @@ app.use(cookieParser());
 // Verify Token Middleware
 const verifyToken = async (req, res, next) => {
   const token = req.cookies?.token
-  
+  console.log(token, 'token verifyToken');
   if (!token) {
     return res.status(401).send({ message: 'unauthorized access' })
   }
@@ -263,7 +262,7 @@ async function run() {
 
 
     // Save book (Read or Wishlist) data to DB
-    app.put('/my-books', verifyToken, async (req, res) => {
+    app.put('/my-books', async (req, res) => {
       try {
         const { email, bookId, status } = req.body;
 
@@ -290,6 +289,7 @@ async function run() {
 
         // Insert new book entry
         const newBook = req.body;
+        console.log(newBook);
         const insertResult = await myBooksCollection.insertOne(newBook);
 
         res.json({ message: `Book added to ${status}` });
@@ -301,7 +301,7 @@ async function run() {
     });
 
     // get my-books data for specific user
-    app.get('/my-books/:email', verifyToken, async (req, res) => {
+    app.get('/my-books/:email',  async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await myBooksCollection.find(query).toArray();
@@ -356,7 +356,7 @@ async function run() {
     app.patch('/users/update/:email', verifyToken, verifyAdmin, async (req, res) => {
       const email = req.params.email;
       const user = req.body;
-      
+      console.log(user);
       const query = { email };
       const updateDoc = {
         $set: {
