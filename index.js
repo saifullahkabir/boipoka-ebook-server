@@ -16,6 +16,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors({
   origin: [
+    'http://localhost:4173',
     'http://localhost:5173',
     'http://localhost:5174',
     'https://boipoka-ebook.web.app',
@@ -31,7 +32,7 @@ app.use(cookieParser());
 // Verify Token Middleware
 const verifyToken = async (req, res, next) => {
   const token = req.cookies?.token
-  console.log(token);
+  
   if (!token) {
     return res.status(401).send({ message: 'unauthorized access' })
   }
@@ -74,12 +75,23 @@ async function run() {
     const usersCollection = client.db('boipoka-ebook').collection('users');
     const myBooksCollection = client.db('boipoka-ebook').collection('my-books');
 
+    // verify admin Middleware
+    const verifyAdmin = async (req, res, next) => {
+      const user = req.user;
+      const query = { email: user?.email };
+      const result = await usersCollection.findOne(query);
+      if (!result || result?.role !== 'admin') {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next();
+    }
+
     // auth related api
     app.post('/jwt', async (req, res) => {
       const user = req.body
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: '365d',
-      })
+      });
       res
         .cookie('token', token, {
           httpOnly: true,
@@ -107,7 +119,7 @@ async function run() {
     })
 
     // Upload Book
-    app.post('/books', upload.single('pdf'), async (req, res) => {
+    app.post('/books', upload.single('pdf'), verifyToken, verifyAdmin, async (req, res) => {
       try {
         const bookData = JSON.parse(req.body.bookData);
         const file = req.file;
@@ -179,7 +191,7 @@ async function run() {
     })
 
     // delete a book data
-    app.delete('/book/:id', async (req, res) => {
+    app.delete('/book/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await booksCollection.deleteOne(query);
@@ -188,7 +200,7 @@ async function run() {
 
 
     // Update Book
-    app.patch('/book/:id', upload.single('pdf'), async (req, res) => {
+    app.patch('/book/:id', upload.single('pdf'), verifyToken, verifyAdmin, async (req, res) => {
       try {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
@@ -251,7 +263,7 @@ async function run() {
 
 
     // Save book (Read or Wishlist) data to DB
-    app.put('/my-books', async (req, res) => {
+    app.put('/my-books', verifyToken, async (req, res) => {
       try {
         const { email, bookId, status } = req.body;
 
@@ -278,7 +290,6 @@ async function run() {
 
         // Insert new book entry
         const newBook = req.body;
-        console.log(newBook);
         const insertResult = await myBooksCollection.insertOne(newBook);
 
         res.json({ message: `Book added to ${status}` });
@@ -290,7 +301,7 @@ async function run() {
     });
 
     // get my-books data for specific user
-    app.get('/my-books/:email', async (req, res) => {
+    app.get('/my-books/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await myBooksCollection.find(query).toArray();
@@ -329,7 +340,7 @@ async function run() {
     })
 
     // get all user data from db
-    app.get('/users', async (req, res) => {
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     })
@@ -342,10 +353,10 @@ async function run() {
     })
 
     // update a user role
-    app.patch('/users/update/:email', async (req, res) => {
+    app.patch('/users/update/:email', verifyToken, verifyAdmin, async (req, res) => {
       const email = req.params.email;
       const user = req.body;
-      console.log(user);
+      
       const query = { email };
       const updateDoc = {
         $set: {
