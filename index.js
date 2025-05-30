@@ -334,6 +334,29 @@ async function run() {
       res.send(result);
     })
 
+    // get a use info by email from db
+    app.get('/user/:email', async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email });
+      res.send(result);
+    })
+
+    // update a user role
+    app.patch('/users/update/:email', async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+      console.log(user);
+      const query = { email };
+      const updateDoc = {
+        $set: {
+          ...user,
+          timestamp: Date.now()
+        }
+      };
+      const result = await usersCollection.updateOne(query, updateDoc);
+      res.send(result);
+    })
+
     console.log('MongoDB connected successfully!');
   } catch (err) {
     console.error('MongoDB connection error:', err);
