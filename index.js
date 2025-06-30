@@ -118,7 +118,7 @@ async function run() {
     })
 
     // Upload Book
-    app.post('/books', upload.single('pdf'), verifyToken, verifyAdmin, async (req, res) => {
+    app.post('/books', upload.single('pdf'), async (req, res) => {
       try {
         const bookData = JSON.parse(req.body.bookData);
         const file = req.file;
